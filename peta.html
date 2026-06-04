@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peta Kriminalitas - Gulungan Pengingat</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Desain Khusus Legenda Bertema Gulungan Ninja (Scroll) */
+        .info.legend {
+            background: #f2e6ce;
+            padding: 12px;
+            line-height: 20px;
+            color: #1a1a1a;
+            border-radius: 4px;
+            border: 2px solid #8b0000;
+            box-shadow: 5px 5px 0px #000;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 12px;
+        }
+        .info.legend h4 {
+            font-family: 'Permanent Marker', cursive;
+            color: #8b0000;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+            border-bottom: 2px dashed #8b0000;
+            padding-bottom: 3px;
+        }
+        .info.legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.85;
+            border: 1px solid #000;
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="logo">
+            <span class="cloud-icon">☁</span> CRIMENINFO <span>LAMPUNG</span>
+        </div>
+        <ul>
+            <li><a href="index.html">BIODATA</a></li>
+            <li><a href="peta.html" class="active">PETA KRIMINALITAS</a></li>
+        </ul>
+    </nav>
+
+    <main class="container-map">
+        <div class="map-header">
+            <h2 class="anime-title">PETA SEBARAN KRIMINALITAS LAMPUNG 2024</h2>
+            <p class="map-subtitle">Klasifikasi Berdasarkan Tingkat Kerawanan Wilayah (Rank)</p>
+        </div>
+        
+        <div id="map"></div>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // 1. Inisialisasi peta berpusat di Lampung
+        const map = L.map('map').setView([-4.9000, 105.0000], 8.5);
+
+        // 2. Tambahkan lapisan peta dasar dengan style gelap agar tema Akatsuki lebih terasa
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+            attribution: '&copy; CartoDB'
+        }).addTo(map);
+
+        // 3. Penentuan Warna Bertema Api / Akatsuki (Merah Gelap ke Kuning Cerah)
+        function getColor(d) {
+            return d > 2000 ? '#4a0000' : // Bahaya Sangat Tinggi (S-Rank)
+                   d > 1500 ? '#8b0000' : // Bahaya Tinggi (A-Rank)
+                   d > 1000 ? '#b22222' : // Cukup Bahaya (B-Rank)
+                   d > 700  ? '#d9534f' : 
+                   d > 400  ? '#f0ad4e' : // Waspada (C-Rank)
+                   d > 200  ? '#f0deaf' : 
+                              '#fcf8e3';  // Aman (D-Rank)
+        }
+
+        // 4. Pengaturan gaya poligon wilayah
+        function styleFeature(feature) {
+            return {
+                fillColor: getColor(feature.properties.KRMNL),
+                weight: 2,
+                opacity: 1,
+                color: '#ff4500', // Batas garis warna oranye khas Naruto
+                dashArray: '4, 4',
+                fillOpacity: 0.75
+            };
+        }
+
+        // 5. Membaca Data GeoJSON dan Menampilkan Teks Nama Kabupaten di Titik Tengah
+        fetch('Data_KRiminalitas_2024Baru.geojson')
+            .then(response => response.json())
+            .then(geojsonData => {
+                L.geoJSON(geojsonData, {
+                    style: styleFeature,
+                    onEachFeature: function (feature, layer) {
+                        let namaKabupaten = feature.properties.WADMKK;
+                        let kasus = feature.properties.KRMNL || 0;
+                        
+                        // Menentukan Tingkatan Rank Ninja
+                        let rank = "D-Rank (Aman)";
+                        if(kasus > 2000) rank = "⚡ S-Rank (Sangat Krisis)";
+                        else if(kasus > 1500) rank = "🔥 A-Rank (Rawan Tinggi)";
+                        else if(kasus > 1000) rank = "💥 B-Rank (Rawan Menengah)";
+                        else if(kasus > 400) rank = "📜 C-Rank (Waspada)";
+
+                        // FIX: Memunculkan teks nama kabupaten secara permanen tepat di titik tengah koordinat wilayah
+                        // Menggunakan bindTooltip dengan target layer itu sendiri
+                        layer.bindTooltip(namaKabupaten, {
+                            permanent: true,       // Teks muncul terus tanpa perlu diarahkan kursor
+                            direction: 'center',   // Posisi di tengah
+                            className: 'label-kabupaten' // Desain dari style.css
+                        });
+
+                        // Pop-up Informasi Detail saat wilayah diklik
+                        layer.bindPopup(`
+                            <div class="naruto-popup">
+                                <h3>🏯 ${namaKabupaten}</h3>
+                                <hr style="border: 1px dashed #ff4500; margin: 8px 0;">
+                                <p><b>Wilayah:</b> ${feature.properties.WADMPR}</p>
+                                <p><b>Status Ancaman:</b> <span style="color:#ff4500; font-weight:bold;">${rank}</span></p>
+                                <p class="total-cases"><b>Total Kriminalitas:</b> ${kasus} Kasus</p>
+                            </div>
+                        `);
+                        
+                        // Efek interaksi saat dilewati kursor (Hover)
+                        layer.on({
+                            mouseover: function (e) {
+                                var layer = e.target;
+                                layer.setStyle({
+                                    weight: 3,
+                                    color: '#fff',
+                                    fillOpacity: 0.9
+                                });
+                                layer.bringToFront();
+                            },
+                            mouseout: function (e) {
+                                layer.setStyle(styleFeature(feature));
+                            }
+                        });
+                    }
+                }).addTo(map);
+            })
+            .catch(error => console.error('Gagal memuat gulungan GeoJSON:', error));
+
+        // 6. Membuat Komponen Legenda Bertema Shinobi
+        const legend = L.control({position: 'bottomright'});
+        legend.onAdd = function (map) {
+            const div = L.DomUtil.create('div', 'info legend');
+            const grades = [0, 200, 400, 700, 1000, 1500, 2000];
+            const labels = ['D-Rank', 'C-Rank Base', 'C-Rank High', 'B-Rank', 'B-Rank High', 'A-Rank', 'S-Rank'];
+            
+            div.innerHTML += '<h4>MISSION RANK</h4>';
+            for (let i = 0; i < grades.length; i++) {
+                div.innerHTML +=
+                    '<i style="background:' + getColor(grades[i] + 1) + '"></i> ' +
+                    grades[i] + (grades[i + 1] ? '&ndash;' + grades[i + 1] + ' ('+ labels[i] +')<br>' : '+ (S-Rank)<br>');
+            }
+            return div;
+        };
+        legend.addTo(map);
+    </script>
+</body>
+</html>
